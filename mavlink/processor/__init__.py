@@ -1,12 +1,20 @@
+import time
 from abc import ABC, abstractmethod
 import numpy
 
-from mavlink.data import QueuePipe, LocalPosition, GlobalPosition, Attitude
+from mavlink.data import (
+    QueuePipe,
+    LocalPosition,
+    GlobalPosition,
+    Attitude,
+    MAVLinkDataType
+)
 
 
 class DataProcessor(ABC):
     def __init__(self, queue: QueuePipe):
         self.queue = queue
+        self.data_type = None
 
     @abstractmethod
     def add_data(self, data):
@@ -16,12 +24,16 @@ class DataProcessor(ABC):
 class LocalPositionProcessor:
     def __init__(self):
         self.queue = QueuePipe()
+        self.data_type = MAVLinkDataType.LOCAL_POSITION.value
 
     def add_data(self, data):
         format_data = LocalPosition.from_mavlink(data)
         self.queue.add_data(format_data)
 
-    def simple_extrapolation(self, target_timestamp):
+    def simple_extrapolation(self, target_timestamp=None):
+        if not target_timestamp:
+            target_timestamp = time.time()
+
         position = self.queue.get_latest()
 
         if position is None:
@@ -75,6 +87,7 @@ class LocalPositionProcessor:
 class GlobalPositionProcessor:
     def __init__(self, queue):
         self.queue = queue
+        self.data_type = MAVLinkDataType.GLOBAL_POSITION.value
 
     def add_data(self, data):
         format_data = GlobalPosition.from_mavlink(data)
@@ -84,12 +97,16 @@ class GlobalPositionProcessor:
 class AttitudeProcessor:
     def __init__(self):
         self.queue = QueuePipe()
+        self.data_type = MAVLinkDataType.ATTITUDE.value
 
     def add_data(self, data):
         format_data = Attitude.from_mavlink(data)
         self.queue.add_data(format_data)
 
-    def simple_extrapolation(self, target_timestamp):
+    def simple_extrapolation(self, target_timestamp=None):
+        if not target_timestamp:
+            target_timestamp = time.time()
+
         attitude = self.queue.get_latest()
 
         if attitude is None:

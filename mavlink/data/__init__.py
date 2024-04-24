@@ -4,6 +4,16 @@ import time
 from collections import deque
 import threading
 from dataclasses import dataclass
+from enum import Enum
+
+
+class MAVLinkDataType(Enum):
+    LOCAL_POSITION = "LOCAL_POSITION_NED"
+    GLOBAL_POSITION = "GLOBAL_POSITION_INT"
+    ATTITUDE = "ATTITUDE"
+    GIMBAL = "GIMBAL_DEVICE_ATTITUDE_STATUS"
+    RC = "RC_CHANNELS"
+    SERVO = "SERVO_OUTPUT_RAW"
 
 
 class QueuePipe:
@@ -31,6 +41,64 @@ class QueuePipe:
                 return self._queue[-1]
             except IndexError:
                 return None
+
+
+@dataclass
+class Quaternion:
+    w: float
+    x: float
+    y: float
+    z: float
+
+    def __init__(self, source):
+        if isinstance(source, (list, tuple)) and len(source) == 4:
+            self.w, self.x, self.y, self.z = source
+        else:
+            raise ValueError("Invalid source for Quaternion, must be a list or tuple with four elements.")
+
+    @classmethod
+    def from_euler(cls, roll, pitch, yaw):
+        cy = math.cos(yaw * 0.5)
+        sy = math.sin(yaw * 0.5)
+        cp = math.cos(pitch * 0.5)
+        sp = math.sin(pitch * 0.5)
+        cr = math.cos(roll * 0.5)
+        sr = math.sin(roll * 0.5)
+
+        w = cy * cp * cr + sy * sp * sr
+        x = cy * cp * sr - sy * sp * cr
+        y = sy * cp * sr + cy * sp * cr
+        z = sy * cp * cr - cy * sp * sr
+
+        return cls(w, x, y, z)
+
+    @classmethod
+    def from_mavlink(cls, attitude):
+        return cls.from_euler(
+            roll=attitude.roll,
+            pitch=attitude.pitch,
+            yaw=attitude.yaw
+        )
+
+    def to_array(self):
+        return [self.w, self.x, self.y, self.z]
+
+    def to_euler(self):
+        sinr_cosp = 2 * (self.w * self.x + self.y * self.z)
+        cosr_cosp = 1 - 2 * (self.x ** 2 + self.y ** 2)
+        roll = math.atan2(sinr_cosp, cosr_cosp)
+
+        sinp = 2 * (self.w * self.y - self.z * self.x)
+        if abs(sinp) >= 1:
+            pitch = math.copysign(math.pi / 2, sinp)
+        else:
+            pitch = math.asin(sinp)
+
+        siny_cosp = 2 * (self.w * self.z + self.x * self.y)
+        cosy_cosp = 1 - 2 * (self.y ** 2 + self.z ** 2)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+
+        return roll, pitch, yaw
 
 
 @dataclass
@@ -158,33 +226,66 @@ class Attitude:
 
 
 @dataclass
-class Quaternion:
-    w: float
-    x: float
-    y: float
-    z: float
+class Gimbal:
+    timestamp: float
+    flags: int
+    quaternion: Quaternion
+
+    def copy(self):
+        return copy.copy(self)
 
     @classmethod
-    def from_euler(cls, roll, pitch, yaw):
-        cy = math.cos(yaw * 0.5)
-        sy = math.sin(yaw * 0.5)
-        cp = math.cos(pitch * 0.5)
-        sp = math.sin(pitch * 0.5)
-        cr = math.cos(roll * 0.5)
-        sr = math.sin(roll * 0.5)
-
-        w = cy * cp * cr + sy * sp * sr
-        x = cy * cp * sr - sy * sp * cr
-        y = sy * cp * sr + cy * sp * cr
-        z = sy * cp * cr - cy * sp * sr
-
-        return cls(w, x, y, z)
-
-    @classmethod
-    def from_attitude(cls, attitude):
-        return cls.from_euler(
-            roll=attitude.roll,
-            pitch=attitude.pitch,
-            yaw=attitude.yaw
+    def from_mavlink(cls, data):
+        return cls(
+            timestamp=time.time(),
+            flags=data.flags,
+            quaternion=Quaternion(data.q)
         )
 
+
+@dataclass
+class RCChannels:
+    timestamp: float
+    channels_count: int
+    channels_raw: list
+    rssi: int
+
+    def copy(self):
+        return copy.copy(self)
+
+    @classmethod
+    def from_mavlink(cls, data):
+        return cls(
+            timestamp=time.time(),
+            channels_count=data.chancount,
+            channels_raw=[
+                data.chan1_raw, data.chan2_raw, data.chan3_raw,
+                data.chan4_raw, data.chan5_raw, data.chan6_raw,
+                data.chan7_raw, data.chan8_raw, data.chan9_raw,
+                data.chan10_raw, data.chan11_raw, data.chan12_raw,
+                data.chan13_raw, data.chan14_raw, data.chan15_raw,
+                data.chan16_raw, data.chan17_raw, data.chan18_raw
+            ],
+            rssi=data.rssi
+        )
+
+
+@dataclass
+class ServoChannels:
+    timestamp: float
+    servos_raw: list
+
+    def copy(self):
+        return copy.copy(self)
+
+    @classmethod
+    def from_mavlink(cls, data):
+        return cls(
+            timestamp=time.time(),
+            servos_raw=[
+                data.servo1_raw, data.servo2_raw, data.servo3_raw, data.servo4_raw,
+                data.servo5_raw, data.servo6_raw, data.servo7_raw, data.servo8_raw,
+                data.servo9_raw, data.servo10_raw, data.servo11_raw, data.servo12_raw,
+                data.servo13_raw, data.servo14_raw, data.servo15_raw, data.servo16_raw
+            ]
+        )

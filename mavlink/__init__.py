@@ -1,8 +1,8 @@
 import time
 import threading
+from data import Quaternion
 
 from pymavlink import mavutil
-from pymavlink.quaternion import QuaternionBase
 
 
 class MAVLinkHandler:
@@ -19,7 +19,7 @@ class MAVLinkHandler:
         return self.connection
 
     def send_attitude(self, attitude):
-        attitude_quaterion = QuaternionBase([attitude.roll, attitude.pitch, attitude.yaw])
+        attitude_quaterion = Quaternion.from_euler(attitude.roll, attitude.pitch, attitude.yaw)
 
         byte_mask = 0b00000111
 
@@ -55,14 +55,13 @@ class MAVLinkHandler:
 
 
 class DataAcquisitionThread(threading.Thread):
-    def __init__(self, mavlink_handler, data_type, data_processor):
+    def __init__(self, mavlink_handler, data_processor):
         super().__init__()
         self.mavlink_handler = mavlink_handler
-        self.data_type = data_type
         self.data_processor = data_processor
 
     def run(self):
         while True:
-            message = self.mavlink_handler.receive_packet(self.data_type)
+            message = self.mavlink_handler.receive_packet(self.data_processor.data_type)
 
             self.data_processor.add_data(message)
