@@ -1,6 +1,6 @@
 import time
 import threading
-from mavlink.data import Quaternion
+from .data import Quaternion
 
 from pymavlink import mavutil
 

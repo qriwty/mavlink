@@ -2,7 +2,7 @@ import time
 from abc import ABC, abstractmethod
 import numpy
 
-from mavlink.data import (
+from ..data import (
     QueuePipe,
     LocalPosition,
     GlobalPosition,
