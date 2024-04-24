@@ -5,11 +5,12 @@ from mavlink.data import Quaternion
 from pymavlink import mavutil
 
 
-class MAVLinkHandler:
+class MAVLinkController:
     def __init__(self, device):
-        self.connection = self.create_connection(device)
-        self.boot_time = 0
         self.lock = threading.Lock()
+        self.boot_time = None
+        self.connection = self.create_connection(device)
+        self.gimbal = GimbalController(self)
 
     def create_connection(self, url):
         self.connection = mavutil.mavlink_connection(url)
@@ -17,6 +18,26 @@ class MAVLinkHandler:
         self.boot_time = time.time()
 
         return self.connection
+
+    def encode_command_long(self, command, *params):
+        return self.connection.mav.command_long_encode(
+            self.connection.target_system,
+            self.connection.target_component,
+            command,
+            1,
+            *params
+        )
+
+    def encode_command_int(self, frame, command, *params):
+        return self.connection.mav.command_int_encode(
+            self.connection.target_system,
+            self.connection.target_component,
+            frame,
+            command,
+            0,
+            0,
+            *params
+        )
 
     def send_attitude(self, attitude):
         attitude_quaterion = Quaternion.from_euler(attitude.roll, attitude.pitch, attitude.yaw)
@@ -58,6 +79,44 @@ class MAVLinkHandler:
             message = self.connection.recv_match(blocking=True)
 
             return message
+
+
+class GimbalController:
+    def __init__(self, mavlink_controller: MAVLinkController):
+        self.mavlink_controller = mavlink_controller
+
+    def set_angles(self, roll=0, pitch=0, yaw=0):
+        command = self.mavlink_controller.encode_command_long(
+            mavutil.mavlink.MAV_CMD_DO_MOUNT_CONTROL,
+            pitch, roll, yaw,
+            0, 0, 0,
+            mavutil.mavlink.MAV_MOUNT_MODE_MAVLINK_TARGETING
+        )
+
+        self.mavlink_controller.send_packet(command)
+
+    def set_roi_location(self, latitude, longitude, altitude):
+        latitude_int = int(latitude * 10 ** 7)
+        longitude_int = int(longitude * 10 ** 7)
+
+        command = self.mavlink_controller.encode_command_int(
+            mavutil.mavlink.MAV_FRAME_GLOBAL_INT,
+            mavutil.mavlink.MAV_CMD_DO_SET_ROI_LOCATION,
+            0, 0, 0, 0,
+            latitude_int, longitude_int, altitude
+        )
+
+        self.mavlink_controller.send_packet(command)
+
+    def disable_roi(self):
+        command = self.mavlink_controller.encode_command_int(
+            0,
+            mavutil.mavlink.MAV_CMD_DO_SET_ROI_NONE,
+            0, 0, 0, 0,
+            0, 0, 0
+        )
+
+        self.mavlink_controller.send_packet(command)
 
 
 class DataAcquisitionThread(threading.Thread):
