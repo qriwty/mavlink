@@ -7,24 +7,26 @@ from mavlink.data import (
     LocalPosition,
     GlobalPosition,
     Attitude,
+    Gimbal,
+    RCChannels,
+    ServoChannels,
     MAVLinkDataType
 )
 
 
 class DataProcessor(ABC):
-    def __init__(self, queue: QueuePipe):
+    def __init__(self, queue: QueuePipe, data_type: MAVLinkDataType):
         self.queue = queue
-        self.data_type = None
+        self.data_type = data_type
 
     @abstractmethod
     def add_data(self, data):
         pass
 
 
-class LocalPositionProcessor:
+class LocalPositionProcessor(DataProcessor):
     def __init__(self):
-        self.queue = QueuePipe()
-        self.data_type = MAVLinkDataType.LOCAL_POSITION.value
+        super().__init__(QueuePipe(), MAVLinkDataType.LOCAL_POSITION)
 
     def add_data(self, data):
         format_data = LocalPosition.from_mavlink(data)
@@ -84,20 +86,18 @@ class LocalPositionProcessor:
         return current_position
 
 
-class GlobalPositionProcessor:
-    def __init__(self, queue):
-        self.queue = queue
-        self.data_type = MAVLinkDataType.GLOBAL_POSITION.value
+class GlobalPositionProcessor(DataProcessor):
+    def __init__(self):
+        super().__init__(QueuePipe(), MAVLinkDataType.GLOBAL_POSITION)
 
     def add_data(self, data):
         format_data = GlobalPosition.from_mavlink(data)
         self.queue.add_data(format_data)
 
 
-class AttitudeProcessor:
+class AttitudeProcessor(DataProcessor):
     def __init__(self):
-        self.queue = QueuePipe()
-        self.data_type = MAVLinkDataType.ATTITUDE.value
+        super().__init__(QueuePipe(), MAVLinkDataType.ATTITUDE)
 
     def add_data(self, data):
         format_data = Attitude.from_mavlink(data)
@@ -155,3 +155,13 @@ class AttitudeProcessor:
         )
 
         return current_attitude
+
+
+class GimbalProcessor(DataProcessor):
+    def __init__(self):
+        super().__init__(QueuePipe(), MAVLinkDataType.GIMBAL)
+
+    def add_data(self, data):
+        format_data = Gimbal.from_mavlink(data)
+        self.queue.add_data(format_data)
+

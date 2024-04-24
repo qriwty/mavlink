@@ -1,6 +1,6 @@
 import time
 import threading
-from data import Quaternion
+from mavlink.data import Quaternion
 
 from pymavlink import mavutil
 
@@ -53,15 +53,29 @@ class MAVLinkHandler:
 
             return message
 
+    def receive_data(self):
+        with self.lock:
+            message = self.connection.recv_match(blocking=True)
+
+            return message
+
 
 class DataAcquisitionThread(threading.Thread):
-    def __init__(self, mavlink_handler, data_processor):
+    def __init__(self, mavlink_handler, processor_list, delay=1/100):
         super().__init__()
         self.mavlink_handler = mavlink_handler
-        self.data_processor = data_processor
+        self.processor_list = processor_list
+        self.delay = delay
+
+    def find_interested(self, packet):
+        for processor in self.processor_list:
+            if packet.msgname == processor.data_type.value:
+                processor.add_data(packet)
 
     def run(self):
         while True:
-            message = self.mavlink_handler.receive_packet(self.data_processor.data_type)
+            packet = self.mavlink_handler.receive_data()
 
-            self.data_processor.add_data(message)
+            self.find_interested(packet)
+
+            time.sleep(self.delay)
