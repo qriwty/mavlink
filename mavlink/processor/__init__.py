@@ -23,6 +23,10 @@ class DataProcessor(ABC):
     def add_data(self, data):
         pass
 
+    @abstractmethod
+    def get_data(self):
+        pass
+
 
 class LocalPositionProcessor(DataProcessor):
     def __init__(self):
@@ -31,6 +35,9 @@ class LocalPositionProcessor(DataProcessor):
     def add_data(self, data):
         format_data = LocalPosition.from_mavlink(data)
         self.queue.add_data(format_data)
+
+    def get_data(self):
+        return self.queue.get_latest()
 
     def simple_extrapolation(self, target_timestamp=None):
         if not target_timestamp:
@@ -94,6 +101,9 @@ class GlobalPositionProcessor(DataProcessor):
         format_data = GlobalPosition.from_mavlink(data)
         self.queue.add_data(format_data)
 
+    def get_data(self):
+        return self.queue.get_latest()
+
 
 class AttitudeProcessor(DataProcessor):
     def __init__(self):
@@ -102,6 +112,9 @@ class AttitudeProcessor(DataProcessor):
     def add_data(self, data):
         format_data = Attitude.from_mavlink(data)
         self.queue.add_data(format_data)
+
+    def get_data(self):
+        return self.queue.get_latest()
 
     def simple_extrapolation(self, target_timestamp=None):
         if not target_timestamp:
@@ -165,3 +178,5 @@ class GimbalProcessor(DataProcessor):
         format_data = Gimbal.from_mavlink(data)
         self.queue.add_data(format_data)
 
+    def get_data(self):
+        return self.queue.get_latest()
