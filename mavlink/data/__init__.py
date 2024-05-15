@@ -6,6 +6,8 @@ import threading
 from dataclasses import dataclass
 from enum import Enum
 
+import numpy
+
 
 class MAVLinkDataType(Enum):
     LOCAL_POSITION = "LOCAL_POSITION_NED"
@@ -50,27 +52,29 @@ class Quaternion:
     y: float
     z: float
 
-    def __init__(self, source):
+    def __init__(self, source=None, w=None, x=None, y=None, z=None):
         if isinstance(source, (list, tuple)) and len(source) == 4:
             self.w, self.x, self.y, self.z = source
+        elif all(v is not None for v in [w, x, y, z]):
+            self.w, self.x, self.y, self.z = w, x, y, z
         else:
             raise ValueError("Invalid source for Quaternion, must be a list or tuple with four elements.")
 
     @classmethod
     def from_euler(cls, roll, pitch, yaw):
-        cy = math.cos(yaw * 0.5)
-        sy = math.sin(yaw * 0.5)
-        cp = math.cos(pitch * 0.5)
-        sp = math.sin(pitch * 0.5)
-        cr = math.cos(roll * 0.5)
-        sr = math.sin(roll * 0.5)
+        cy = math.cos(yaw / 2)
+        sy = math.sin(yaw / 2)
+        cp = math.cos(pitch / 2)
+        sp = math.sin(pitch / 2)
+        cr = math.cos(roll / 2)
+        sr = math.sin(roll / 2)
 
         w = cy * cp * cr + sy * sp * sr
         x = cy * cp * sr - sy * sp * cr
         y = sy * cp * sr + cy * sp * cr
         z = sy * cp * cr - cy * sp * sr
 
-        return cls(w, x, y, z)
+        return cls(w=w, x=x, y=y, z=z)
 
     @classmethod
     def from_mavlink(cls, attitude):
