@@ -19,12 +19,12 @@ class MAVLinkController:
 
         return self.connection
 
-    def encode_command_long(self, command, *params):
+    def encode_command_long(self, command, flag, *params):
         return self.connection.mav.command_long_encode(
             self.connection.target_system,
             self.connection.target_component,
             command,
-            1,
+            flag,
             *params
         )
 
@@ -88,6 +88,7 @@ class GimbalController:
     def set_angles(self, roll=0, pitch=0, yaw=0):
         command = self.mavlink_controller.encode_command_long(
             mavutil.mavlink.MAV_CMD_DO_MOUNT_CONTROL,
+            1,
             pitch, roll, yaw,
             0, 0, 0,
             mavutil.mavlink.MAV_MOUNT_MODE_MAVLINK_TARGETING
