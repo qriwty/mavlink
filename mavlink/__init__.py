@@ -113,6 +113,23 @@ class DroneController:
 
         return self.mavlink_controller.receive_packet("COMMAND_ACK")
 
+    def send_attitude(self, attitude):
+        attitude_quaterion = Quaternion.from_euler(attitude.roll, attitude.pitch, attitude.yaw)
+
+        byte_mask = 0b00000111
+
+        composed_attitude = self.connection.mav.set_attitude_target_encode(
+            0,
+            self.connection.target_system,
+            self.connection.target_component,
+            byte_mask,
+            attitude_quaterion,
+            0, 0, 0, thrust=0.5
+        )
+
+        self.send_packet(composed_attitude)
+
+
     def point_drone(self, heading):
         command = self.mavlink_controller.encode_command_long(
             mavutil.mavlink.MAV_CMD_CONDITION_YAW,
