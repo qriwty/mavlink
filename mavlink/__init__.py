@@ -108,6 +108,15 @@ class DroneController:
             4
         )
 
+        self.mavlink_controller.send_packet(command)
+
+    def point_drone(self, heading):
+        command = self.mavlink_controller.encode_command_long(
+            mavutil.mavlink.MAV_CMD_CONDITION_YAW,
+            heading, 10, 0, 1
+        )
+
+
 
 class GimbalController:
     def __init__(self, mavlink_controller: MAVLinkController):
