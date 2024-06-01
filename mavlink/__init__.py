@@ -11,6 +11,7 @@ class MAVLinkController:
         self.boot_time = None
         self.connection = self.create_connection(device)
         self.gimbal = GimbalController(self)
+        self.drone = DroneController(self)
 
     def create_connection(self, url):
         self.connection = mavutil.mavlink_connection(url)
@@ -64,10 +65,12 @@ class DroneController:
         command = self.mavlink_controller.encode_command_long(
             mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
             flag,
-            21196
+            21196, 0, 0, 0, 0, 0
         )
 
         self.mavlink_controller.send_packet(command)
+
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
 
     def takeoff(self, altitude):
         command = self.mavlink_controller.encode_command_long(
@@ -77,6 +80,8 @@ class DroneController:
 
         self.mavlink_controller.send_packet(command)
 
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
+
     def land(self):
         command = self.mavlink_controller.encode_command_long(
             mavutil.mavlink.MAV_CMD_NAV_LAND,
@@ -84,6 +89,8 @@ class DroneController:
         )
 
         self.mavlink_controller.send_packet(command)
+
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
 
     def go_to(self, latitude, longitude, altitude):
         command = self.mavlink_controller.encode_command_long(
@@ -93,29 +100,28 @@ class DroneController:
 
         self.mavlink_controller.send_packet(command)
 
-    def loiter(self, latitude, longitude, altitude, radius):
-        command = self.mavlink_controller.encode_command_long(
-            mavutil.mavlink.MAV_CMD_NAV_LOITER_TURNS,
-            3, 0, radius, 0, latitude, longitude, altitude
-        )
-
-        self.mavlink_controller.send_packet(command)
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
 
     def set_mode(self, mode):
         command = self.mavlink_controller.encode_command_long(
             mavutil.mavlink.MAV_CMD_DO_SET_MODE,
             mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-            4
+            mode, 0, 0, 0, 0, 0
         )
 
         self.mavlink_controller.send_packet(command)
 
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
+
     def point_drone(self, heading):
         command = self.mavlink_controller.encode_command_long(
             mavutil.mavlink.MAV_CMD_CONDITION_YAW,
-            heading, 10, 0, 1
+            heading, 10, 0, 1, 0, 0, 0
         )
 
+        self.mavlink_controller.send_packet(command)
+
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
 
 
 class GimbalController:
@@ -125,13 +131,14 @@ class GimbalController:
     def set_angles(self, roll=0, pitch=0, yaw=0):
         command = self.mavlink_controller.encode_command_long(
             mavutil.mavlink.MAV_CMD_DO_MOUNT_CONTROL,
-            1,
             pitch, roll, yaw,
             0, 0, 0,
             mavutil.mavlink.MAV_MOUNT_MODE_MAVLINK_TARGETING
         )
 
         self.mavlink_controller.send_packet(command)
+
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
 
     def set_roi_location(self, latitude, longitude, altitude):
         latitude_int = int(latitude * 10 ** 7)
@@ -146,6 +153,8 @@ class GimbalController:
 
         self.mavlink_controller.send_packet(command)
 
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
+
     def disable_roi(self):
         command = self.mavlink_controller.encode_command_int(
             0,
@@ -155,6 +164,8 @@ class GimbalController:
         )
 
         self.mavlink_controller.send_packet(command)
+
+        return self.mavlink_controller.receive_packet("COMMAND_ACK")
 
 
 class DataAcquisitionThread(threading.Thread):
